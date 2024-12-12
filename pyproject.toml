@@ -1,0 +1,13 @@
+[project]
+name = "minGPT"
+version = "0.1.0"
+description = "Karpathy's minGPT - a re-implementation of GPT in Python/PyTorc"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.2.0",
+    "regex>=2024.11.6",
+    "requests>=2.32.3",
+    "torch>=2.5.1",
+    "transformers>=4.47.0",
+]
