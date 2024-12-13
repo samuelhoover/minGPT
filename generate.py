@@ -49,7 +49,7 @@ def batch_end_callback(trainer):
         )
 
 
-def generate(prompt="", num_samples=10, steps=20, do_sample=True):
+def generate(model, prompt="", num_samples=10, steps=20, do_sample=True):
     bpe = BPETokenizer()
     if prompt == "":
         x = torch.tensor([[bpe.encoder.encoder["<|endoftext|>"]]], dtype=torch.long)
@@ -65,22 +65,29 @@ def generate(prompt="", num_samples=10, steps=20, do_sample=True):
         print(out)
 
 
-if __name__ == "__main__":
+def get_data():
     with open("../gpt-from-scratch/input.txt", "r", encoding="utf-8") as f:
         text = f.read()
 
     train_dataset = TextDataset(text, BPETokenizer(), BLOCK_SIZE, 1)
-    VOCAB_SIZE = train_dataset.get_vocab_size()
 
     x, y = train_dataset[0]
     print(f"{x}\n{y}")
 
+    return train_dataset
+
+
+def setup_model(vocab_size):
     model_config = GPT.get_default_config()
     model_config.model_type = "gpt-nano"
-    model_config.vocab_size = VOCAB_SIZE
+    model_config.vocab_size = vocab_size
     model_config.block_size = BLOCK_SIZE
     model = GPT(model_config).to(device)
 
+    return model
+
+
+def setup_trainer(model, train_dataset):
     train_config = Trainer.get_default_config()
     train_config.device = device
     train_config.batch_size = BATCH_SIZE
@@ -89,8 +96,38 @@ if __name__ == "__main__":
     train_config.max_iters = 8000
     train_config.num_workers = 0
     trainer = Trainer(train_config, model, train_dataset)
-
     trainer.set_callback("on_batch_end", batch_end_callback)
-    trainer.run()
 
-    generate(prompt="Sophia Berger, the", num_samples=5, steps=40)
+    return trainer
+
+
+def main(load=None, prompt="", num_samples=10, steps=20):
+    train_dataset = get_data()
+    if load is None:
+        model = setup_model(train_dataset.get_vocab_size())
+        trainer = setup_trainer(model, train_dataset)
+        trainer.run()
+        torch.save(model.state_dict(), "gpt-nano_v1.pt")
+    else:
+        model_config = GPT.get_default_config()
+        model_config.model_type = "gpt-nano"
+        model_config.vocab_size = train_dataset.get_vocab_size()
+        model_config.block_size = BLOCK_SIZE
+        model = GPT(model_config)
+        model.load_state_dict(torch.load(load, weights_only=True))
+        model.to(device)
+
+    model.eval()
+    generate(model, prompt=prompt, num_samples=num_samples, steps=steps)
+
+
+if __name__ == "__main__":
+    # generation options
+    prompt = "Hulk Hogan, about to play Dungeons & Dragons:"
+    num_samples = 5
+    steps = 80
+
+    # I/O options
+    load = "gpt-nano_v1.pt"
+
+    main(load, prompt, num_samples, steps)
